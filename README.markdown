@@ -4,7 +4,7 @@ Simple tool to set pulseaudio channel volumes
 Usage
 -----
 
-    pavolumeset _pasink_ _chan_=_vol-in-db_ _chan_=_vol-in-db_ _..._
+pavolumeset _pasink_ _chan_=_vol-in-db_ _chan_=_vol-in-db_ _..._
 
 
 For example:

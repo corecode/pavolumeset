@@ -1,6 +1,6 @@
 PROG=pavolumeset
 
-CFLAGS+=	-std=c99 -Wall -g
+CFLAGS+=	-std=c99 -Wall -g -O
 LDLIBS+=	-lpulse
 
 all: ${PROG}

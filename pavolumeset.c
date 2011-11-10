@@ -95,7 +95,7 @@ main(int argc, char **argv)
 		START,
 		SINKINFO,
 		DONE,
-	} state;
+	} state = START;
 
 	while (ready >= 0) {
                 pa_mainloop_iterate(pam, 1, NULL);

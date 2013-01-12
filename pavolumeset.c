@@ -3,6 +3,14 @@
 #include <string.h>
 #include <pulse/pulseaudio.h>
 
+
+struct sinkdata {
+	int		success;
+	uint32_t	index;
+	pa_channel_map	channel_map;
+	pa_cvolume	volume;
+};
+
 static void
 pactx_cb(pa_context *ctx, void *data)
 {
@@ -27,10 +35,14 @@ pactx_cb(pa_context *ctx, void *data)
 static void
 pasink_cb(pa_context *ctx, const pa_sink_info *i, int eol, void *data)
 {
-	const pa_sink_info **sip = data;
+	struct sinkdata *sd = data;
 
-	if (eol == 0 && i)
-		*sip = i;
+	if (eol == 0 && i) {
+		sd->index = i->index;
+		sd->channel_map = i->channel_map;
+		sd->volume = i->volume;
+		sd->success = 1;
+	}
 }
 
 static void
@@ -58,13 +70,13 @@ parse_and_set_volume(pa_cvolume *vol, const pa_channel_map *map, int argc, char 
 		}
 
 		if (!pa_cvolume_set_position(vol, map, pos, pa_sw_volume_from_dB(voldb))) {
-			fprintf(stderr, "channel `%s' does not exist\n", channame);
+			fprintf(stderr, "channel `%s' (%d) does not exist\n", channame, pos);
 			continue;
 		}
 
 		printf("set channel `%s' to %lfdB\n",
 		       pa_channel_position_to_pretty_string(pos),
-		       pa_sw_volume_to_dB(pa_cvolume_get_position(vol, map, pos)));		       
+		       pa_sw_volume_to_dB(pa_cvolume_get_position(vol, map, pos)));
 	}
 }
 
@@ -88,8 +100,7 @@ main(int argc, char **argv)
 
 	pa_operation *paop = NULL;
 
-	pa_cvolume vol;
-	const pa_sink_info *sinkinfo;
+	struct sinkdata sinkdata = { .success = 0 };
 
 	enum {
 		START,
@@ -109,21 +120,25 @@ main(int argc, char **argv)
 			pa_operation_unref(paop);
 			paop = NULL;
 		}
-		
+
 
 		switch (state) {
 		case START:
-			paop = pa_context_get_sink_info_by_name(pactx, argv[1], pasink_cb, &sinkinfo);
+			paop = pa_context_get_sink_info_by_name(pactx, argv[1], pasink_cb, &sinkdata);
 			state = SINKINFO;
 			break;
 
 		case SINKINFO:
-			if (!sinkinfo) {
+			if (!sinkdata.success) {
 				errx(1, "unknown sink `%s'", argv[1]);
 			}
-			vol = sinkinfo->volume;
-			parse_and_set_volume(&vol, &sinkinfo->channel_map, argc - 2, argv + 2);
-			paop = pa_context_set_sink_volume_by_index(pactx, sinkinfo->index, &vol, success_cb, NULL);
+			parse_and_set_volume(&sinkdata.volume,
+					     &sinkdata.channel_map,
+					     argc - 2, argv + 2);
+			paop = pa_context_set_sink_volume_by_index(pactx,
+								   sinkdata.index,
+								   &sinkdata.volume,
+								   success_cb, NULL);
 			state = DONE;
 			break;
 
@@ -132,6 +147,6 @@ main(int argc, char **argv)
 		}
 	}
 out:
-	
+
 	return (0);
 }
